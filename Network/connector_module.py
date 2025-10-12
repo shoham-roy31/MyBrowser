@@ -30,7 +30,9 @@ class URL:
             else: self.port = PORT_HTTP if self.scheme == PROTOCOLS[0] else PORT_HTTPS
         except Exception as e:
             raise ValueError(f"Invalid URL : {url} : {e}")
-    def request(self) -> str | int:
+    def request(self,
+                header_verbose : bool = False
+                ) -> str | int:
         s = socket.socket(family = socket.AF_INET,
                           type = socket.SOCK_STREAM,
                           proto = socket.IPPROTO_TCP)
@@ -53,6 +55,11 @@ class URL:
             assert "content-encoding" not in response_headers
             content = response.read()
             s.close()
+            if header_verbose:
+                print(f"Response Version : {version}")
+                print(f"Response Status : {status}")
+                print(f"Response Explanation : {explanation}")
+                print(f"Response Headers : {response_headers}")
             return content
         except Exception as e:
             print(f"Couldn't Connect to the host : {self.url} and port : {self.port} derived from URL {self.url} : {e}")
@@ -68,12 +75,14 @@ def show(content : str) -> str:
             body += c
     print(body)
 
-def load(url : str) -> None:
-    body = url.request()
+def load(url : str,
+         header_verbos : bool = False
+         ) -> None:
+    body = url.request(header_verbos)
     if body != -1: show(body)
             
     else: show(NOT_FOUND)
 
 if __name__ == "__main__":
     url = URL(sys.argv[1])
-    load(url)    
+    load(url,True if len(sys.argv) > 2 and sys.argv[2] == "-v" else False)    
