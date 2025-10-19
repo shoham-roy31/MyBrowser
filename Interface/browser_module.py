@@ -1,23 +1,64 @@
 import sys
 import tkinter
+import tkinter.font
+from Styles.format_module import Text, Tag, Layout
 from Network.connector_module import URL
 from typing import List, Tuple
 WIDTH ,HEIGHT = 1024, 720
 HSTEP, VSTEP = 10, 20,
-NOT_FOUND = "404 NOT FOUND"
+NOT_FOUND = "<i>404 Not Found</i>"
 TITLE = "Portal"
 SCROLL_STEP = 10
 
-def layout(body : str) -> List[Tuple[int,int,str]]:
+def layout(tokens : List[Text | Tag]) -> List[Tuple[int,int,str,tkinter.font.Font]]:
     display_list = []
+    font = tkinter.font.Font()
     cursor_x, cursor_y = HSTEP, VSTEP
-    for c in body:
-        display_list.append((cursor_x,cursor_y,c))
-        if cursor_x >= WIDTH - HSTEP:
+    weight,style = "normal", "roman"
+    for token in tokens:
+        if isinstance(token, Text):
+            for c in token.text.split():
+                font = tkinter.font.Font(size = 16,
+                                         weight = weight,
+                                         slant = style)
+                w = font.measure(c)
+                if cursor_x + w > WIDTH - HSTEP:
+                    cursor_x = HSTEP
+                    cursor_y += font.metrics("linespace") * 1.25
+                display_list.append((cursor_x,cursor_y,c,font))
+                cursor_x += w + font.measure(" ")
+        elif token.tag == 'i':
+            style = "italic"
+        elif token.tag == '/i':
+            style = "roman"
+        elif token.tag == 'b':
+            weight = "bold"
+        elif token.tag == '/b':
+            weight = "normal"
+        elif token.tag == 'br':
             cursor_x = HSTEP
-            cursor_y += VSTEP
-        cursor_x += HSTEP
+            cursor_y += font.metrics("linespace") * 1.25
     return display_list
+
+def lex(body : str) -> List[Text | Tag]:
+    tokens = []
+    buffer = ""
+    in_tag = False
+    for c in body:
+        if c == "<":
+            if buffer:
+                in_tag = True
+                tokens.append(Text(buffer))
+                buffer = ""
+        elif c == ">":
+            in_tag = False
+            tokens.append(Tag(buffer))
+            buffer = ""
+        else:
+            buffer += c
+    if not in_tag and buffer:
+        tokens.append(Text(buffer))
+    return tokens
 
 class Browser:
     def __init__(self) -> None:
@@ -37,16 +78,26 @@ class Browser:
         self.window.resizable(True,True)
     def draw(self) -> None:
         self.canvas.delete("all")
-        for x,y,c in self.display_list:
+        for x,y,c,f in self.display_list:
             if y > self.scroll + HEIGHT : continue
             if y + VSTEP < self.scroll : continue
-            self.canvas.create_text(x,y - self.scroll,text = c)
+            self.canvas.create_text(x,y - self.scroll,
+                                    text = c,
+                                    font = f,
+                                    anchor = "nw")
     def load(self,
              url : URL
             ) -> None:
         body = url.request()
-        self.display_list = layout(body) if body != -1 \
-                            else layout(NOT_FOUND)
+        layout = Layout(body if body != -1 else NOT_FOUND,
+                        HSTEP,
+                        VSTEP,
+                        HEIGHT,
+                        WIDTH)
+        layout.tokenize()
+        self.display_list = layout.display_list
+        
+        
         self.draw()
     
     def scroll_down(self,
