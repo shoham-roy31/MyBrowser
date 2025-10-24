@@ -1,9 +1,11 @@
 import sys
 import tkinter
 import tkinter.font
-from Styles.format_module import Text, Tag, Layout
-from Network.connector_module import URL
 from typing import List, Tuple
+from Network.connector_module import URL
+from Styles.parser_module import HTMLParser
+from Styles.format_module import Text, Tag, Layout
+
 WIDTH ,HEIGHT = 1024, 720
 HSTEP, VSTEP = 10, 20,
 NOT_FOUND = "<i>404 Not Found</i>"
@@ -89,15 +91,16 @@ class Browser:
              url : URL
             ) -> None:
         body = url.request()
+        print(body)
+        node = HTMLParser(body).parse()
         layout = Layout(body if body != -1 else NOT_FOUND,
                         HSTEP,
                         VSTEP,
                         HEIGHT,
                         WIDTH)
-        layout.tokenize()
+        #layout.tokenize()
+        layout.recursion(node)
         self.display_list = layout.display_list
-        
-        
         self.draw()
     
     def scroll_down(self,

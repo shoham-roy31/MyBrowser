@@ -1,4 +1,11 @@
 import tkinter.font as tkFont
+import Styles.parser_module as parser
+from typing import Tuple
+
+DEFAULT_STYLE = 'roman'
+DEFAULT_SIZE = 16
+DEFAULT_WEIGHT = 'normal'
+
 class Text:
     def __init__(self,
                text : str
@@ -28,6 +35,9 @@ class Layout:
         self.cursor_x = self.hstep
         self.cursor_y = self.vstep
         self.tokens = []
+        self.style = DEFAULT_STYLE
+        self.weight = DEFAULT_WEIGHT
+        self.size = DEFAULT_SIZE
         self.flush()
 
     def lex(self) -> None:
@@ -48,6 +58,52 @@ class Layout:
         if not in_tag and buffer:
             self.tokens.append(Text(buffer))
     
+    def open_tag(self, 
+                 tag : str,
+                 style : str,
+                 size : int,
+                 weight : str
+                 ) -> Tuple[str,str,str]:
+        if tag == 'i': style = 'roman'
+        elif tag == 'b': weight = "bold"
+        elif tag == 'big' or tag == 'h1': size += 4
+        elif tag == 'small' or tag == 'p': size -= 2
+        elif tag == 'p' or tag == 'br' : 
+            self.flush()
+            self.cursor_y += self.vstep
+        return (style,size,weight)
+
+    def close_tag(self, 
+                  tag : str,
+                  style : str,
+                  size : int,
+                  weight : str
+                  ) -> Tuple[str,str,str]:
+        if tag == 'i': style = DEFAULT_STYLE
+        elif tag == 'b': weight = DEFAULT_WEIGHT
+        elif tag == 'big' or tag == 'h1': size -= 4 
+        elif tag == 'small' or tag == 'p': size += 2
+        return (style,size,weight)
+
+    def recursion(self, 
+                  tree : parser.Node
+                  ) -> None:
+        if isinstance(tree, parser.Text):
+            for word in tree.text.split():
+                self.word_processor(word,self.weight,
+                                    self.style, self.size)
+        else:
+            self.style, self.size,self.weight = self.open_tag(tree.tag,
+                                                              self.style,
+                                                              self.size,
+                                                              self.weight)
+            for child in tree.children:
+                self.recursion(child)
+            self.style, self.size, self.weight = self.close_tag(tree.tag,
+                                                                self.style,
+                                                                self.size,
+                                                                self.weight)
+
     def tokenize(self) -> None:
         self.lex()
         size = 16
@@ -90,10 +146,10 @@ class Layout:
                            weight = weight,
                            slant = style)
         w = font.measure(word)
-        self.line.append((self.cursor_x,word, font))
-        self.cursor_x += w + font.measure(" ")
         if self.cursor_x + w > self.width - self.hstep:
             self.flush()
+        self.line.append((self.cursor_x,word, font))
+        self.cursor_x += w + font.measure(" ")
         
     
     def flush(self) -> None:
