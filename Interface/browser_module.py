@@ -4,7 +4,7 @@ import tkinter.font
 from typing import List, Tuple
 from Network.connector_module import URL
 from Styles.parser_module import HTMLParser
-from Styles.format_module import Text, Tag, Layout
+from Styles.format_module import Text, Tag, DocumentLayout, paint_tree, DrawRect, DrawText
 
 WIDTH ,HEIGHT = 1024, 720
 HSTEP, VSTEP = 10, 20,
@@ -71,6 +71,7 @@ class Browser:
         self.canvas.pack()
         self.window.title(TITLE)
         self.scroll = 0
+        self.display_list = []
         self.window.bind("<Down>",self.scroll_down)
         self.window.bind("<Up>",self.scroll_up)
         self.window.bind("<MouseWheel>",
@@ -80,27 +81,28 @@ class Browser:
         self.window.resizable(True,True)
     def draw(self) -> None:
         self.canvas.delete("all")
-        for x,y,c,f in self.display_list:
-            if y > self.scroll + HEIGHT : continue
-            if y + VSTEP < self.scroll : continue
-            self.canvas.create_text(x,y - self.scroll,
-                                    text = c,
-                                    font = f,
-                                    anchor = "nw")
+        for cmd in self.display_list:
+            if cmd.y > self.scroll + HEIGHT : continue
+            if cmd.y2 + VSTEP < self.scroll : continue
+            cmd.execute(self.scroll, self.canvas)
     def load(self,
              url : URL
             ) -> None:
         body = url.request()
-        print(body)
-        node = HTMLParser(body).parse()
-        layout = Layout(body if body != -1 else NOT_FOUND,
-                        HSTEP,
-                        VSTEP,
-                        HEIGHT,
-                        WIDTH)
+        #print(f"Body : {body}")
+
+        parser = HTMLParser(body if (body != -1 and body != "") \
+                          else NOT_FOUND)
+        node = parser.parse()
+        print(f"Node : {parser.print_tree(node)}")
+        layout = DocumentLayout(node,None,None)
+        layout.layout()
+        paint_tree(layout, self.display_list)
+        print(f"Total DrawText : {sum([isinstance(d,DrawText)  for d in self.display_list])} Total DrawRect : {sum([isinstance(d,DrawRect) for d in self.display_list])}")
         #layout.tokenize()
-        layout.recursion(node)
-        self.display_list = layout.display_list
+        #layout.recursion(node)
+        #self.display_list = layout.display_list
+        #print(self.display_list)
         self.draw()
     
     def scroll_down(self,

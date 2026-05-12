@@ -1,9 +1,13 @@
 import sys
-from typing import Tuple
+from typing import Tuple,Optional
 from Network.connector_module import URL 
 SELF_CLOSING_TAG = [
     "area","base","br","col","embed","hr","img","input",
     "link","meta","param","source","track","wbr"
+]
+HEAD_TAGS = [
+    "base","basefont","bgsound","noscript","link",
+    "meta","title","style","script",
 ]
 class Node:
     def __init__(self,
@@ -52,7 +56,7 @@ class HTMLParser:
                     buffer = ""
             elif b == ">":
                 in_tag = False
-                if buffer[-1] == "/" : buffer = buffer[:-1]
+                buffer = buffer[:-1] if buffer.endswith("/") else buffer
                 self.add_tag(buffer)
                 buffer = ""
             else:
@@ -63,6 +67,7 @@ class HTMLParser:
     
     def add_text(self, text : str) -> None:
         if text.isspace() : return
+        self.implicit_tags(None)
         parent = self.unfinished[-1]
         node = Text(text, parent)
         parent.children.append(node)
@@ -70,12 +75,14 @@ class HTMLParser:
     def add_tag(self, tag : str) -> None:
         if tag.startswith('!'): return
         elif tag.startswith('/'):
+            self.implicit_tags(tag)
             if len(self.unfinished) == 1 : return
             node = self.unfinished.pop()
             parent = self.unfinished[-1]
             parent.children.append(node)
         else:
             tag, attrs = self.get_attributes(tag)
+            self.implicit_tags(tag)
             if tag in SELF_CLOSING_TAG:
                 parent = self.unfinished[-1]
                 node = Tag(tag,attrs,parent)
@@ -84,6 +91,24 @@ class HTMLParser:
                 parent = self.unfinished[-1] if self.unfinished else None
                 node = Tag(tag,attrs,parent)
                 self.unfinished.append(node)
+    def implicit_tags(self,
+                      tag : Optional[str | None] = None
+                      ) -> None:
+        while True:
+            open_tags = [node.tag for node in self.unfinished]
+            if open_tags == [] and tag != 'html':
+                self.add_tag("html")
+            elif open_tags == ["html"] and tag \
+            not in ["head","body","/html"]:
+                if tag in HEAD_TAGS:
+                    self.add_tag("head")
+                else:
+                    self.add_tag("body")
+            elif open_tags == ["html","head"] and \
+            tag not in ["/head"] + HEAD_TAGS:
+                self.add_tag("/head")
+            else: break
+                            
     
     def finish(self) -> Node:
         while len(self.unfinished) > 1:
@@ -126,7 +151,7 @@ class HTMLParser:
             return body
         text = adjust_text(text)
         parts = text.split()
-        tag = parts[0].casefold()
+        tag = parts[0].casefold() if parts else ""
         for pair in parts[1:]:
             if "=" in pair:
                 key,value = pair.split("=",1)
