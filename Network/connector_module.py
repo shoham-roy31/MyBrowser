@@ -26,7 +26,7 @@ class URL:
             self.path = "/" + url
             if ":" in self.host:
                 self.host, self.port = self.host.split(":",1)
-                self.post = int(self.port)
+                self.port = int(self.port)
             else: self.port = PORT_HTTP if self.scheme == PROTOCOLS[0] else PORT_HTTPS
         except Exception as e:
             raise ValueError(f"Invalid URL : {url} : {e}")
