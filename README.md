@@ -1,4 +1,4 @@
-# MyBrowser <br>
+# Portal <br>
 Just want to make my web-browser <br>
 ## Set Started <br>
 Step 1 : Clone the repo <br>
