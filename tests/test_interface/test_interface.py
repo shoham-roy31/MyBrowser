@@ -85,41 +85,160 @@ class TestBrowser(unittest.TestCase):
     @patch('tkinter.Tk')
     @patch('tkinter.Canvas')
     def test_browser_init(self, mock_canvas, mock_tk):
-        browser = Browser()
-        self.assertEqual(browser.scroll, 0)
-        self.assertEqual(browser.display_list, [])
-        mock_tk.return_value.title.assert_called_with("Portal")
+        with patch.object(Browser, 'load'):
+            with patch('tkinter.Entry') as mock_entry:
+                instance = mock_entry.return_value
+                instance.get.return_value = ""
+                browser = Browser()
+                self.assertEqual(browser.scroll, 0)
+                self.assertEqual(browser.display_list, [])
+                mock_tk.return_value.title.assert_called_with("Portal")
+
+    @patch('tkinter.Tk')
+    @patch('tkinter.Canvas')
+    @patch('Interface.browser_module.URL')
+    def test_fuzzy_scheme_correction(self, mock_url, mock_canvas, mock_tk):
+        with patch.object(Browser, 'load') as mock_load:
+            browser = Browser()
+            browser.url_entry.get = MagicMock(return_value="htttps://google.com")
+            browser.navigate()
+            mock_url.assert_called_with("https://www.google.com/")
+            mock_load.assert_called()
+
+    @patch('tkinter.Tk')
+    @patch('tkinter.Canvas')
+    @patch('Interface.browser_module.URL')
+    def test_fuzzy_tld_correction(self, mock_url, mock_canvas, mock_tk):
+        with patch.object(Browser, 'load') as mock_load:
+            browser = Browser()
+            browser.url_entry.get = MagicMock(return_value="google.comm")
+            browser.navigate()
+            mock_url.assert_called_with("https://www.google.com/")
+            mock_load.assert_called()
+
+    @patch('tkinter.Tk')
+    @patch('tkinter.Canvas')
+    @patch('Interface.browser_module.URL')
+    def test_partial_url_augmentation(self, mock_url, mock_canvas, mock_tk):
+        with patch.object(Browser, 'load') as mock_load:
+            browser = Browser()
+            browser.url_entry.get = MagicMock(return_value="google.com")
+            browser.navigate()
+            mock_url.assert_called_with("https://www.google.com/")
+            mock_load.assert_called()
+
+    @patch('tkinter.Tk')
+    @patch('tkinter.Canvas')
+    @patch('Interface.browser_module.URL')
+    def test_trailing_slash_addition(self, mock_url, mock_canvas, mock_tk):
+        with patch.object(Browser, 'load') as mock_load:
+            browser = Browser()
+            browser.url_entry.get = MagicMock(return_value="http://google.com")
+            browser.navigate()
+            mock_url.assert_called_with("http://www.google.com/")
+            mock_load.assert_called()
+
+    @patch('tkinter.Tk')
+    @patch('tkinter.Canvas')
+    @patch('Interface.browser_module.URL')
+    def test_complex_mistyped_url(self, mock_url, mock_canvas, mock_tk):
+        with patch.object(Browser, 'load') as mock_load:
+            browser = Browser()
+            browser.url_entry.get = MagicMock(return_value="htttp://google.con")
+            browser.navigate()
+            mock_url.assert_called_with("http://www.google.com/")
+            mock_load.assert_called()
+
+    @patch('tkinter.Tk')
+    @patch('tkinter.Canvas')
+    @patch('Interface.browser_module.URL')
+    def test_navigate_full_url(self, mock_url, mock_canvas, mock_tk):
+        with patch.object(Browser, 'load') as mock_load:
+            browser = Browser()
+            # Mock the entry to return a specific string
+            browser.url_entry.get = MagicMock(return_value="https://google.com")
+            browser.navigate()
+            mock_url.assert_called_with("https://www.google.com/")
+            mock_load.assert_called()
+
+    @patch('tkinter.Tk')
+    @patch('tkinter.Canvas')
+    @patch('Interface.browser_module.URL')
+    def test_navigate_partial_url(self, mock_url, mock_canvas, mock_tk):
+        with patch.object(Browser, 'load') as mock_load:
+            browser = Browser()
+            browser.url_entry.get = MagicMock(return_value="google.com")
+            browser.navigate()
+            mock_url.assert_called_with("https://www.google.com/")
+            mock_load.assert_called()
+
+    @patch('tkinter.Tk')
+    @patch('tkinter.Canvas')
+    @patch('Interface.browser_module.URL')
+    def test_navigate_invalid_url(self, mock_url, mock_canvas, mock_tk):
+        mock_url.side_effect = ValueError("Invalid URL")
+        with patch.object(Browser, 'load') as mock_load:
+            browser = Browser()
+            browser.url_entry.get = MagicMock(return_value="invalid-url")
+            # Should not raise exception
+            browser.navigate()
+            mock_url.assert_called()
+            mock_load.assert_not_called()
+
+    @patch('tkinter.Tk')
+    @patch('tkinter.Canvas')
+    @patch('Interface.browser_module.URL')
+    @patch('sys.argv', ['browser_module.py', 'http://test.com'])
+    def test_initial_url_loading(self, mock_url, mock_canvas, mock_tk):
+        with patch.object(Browser, 'load') as mock_load:
+            # Mock the Entry object's behavior
+            with patch('tkinter.Entry') as mock_entry:
+                instance = mock_entry.return_value
+                instance.get.return_value = 'http://test.com'
+
+                browser = Browser()
+                instance.insert.assert_called_with(0, 'http://www.test.com/')
+                mock_load.assert_called()
 
     @patch('tkinter.Tk')
     @patch('tkinter.Canvas')
     def test_scroll_logic(self, mock_canvas, mock_tk):
-        browser = Browser()
-        browser.scroll_down(None)
-        self.assertEqual(browser.scroll, 10)
-        browser.scroll_up(None)
-        self.assertEqual(browser.scroll, 0)
-        browser.scroll_up(None)
-        self.assertEqual(browser.scroll, 0)
+        with patch.object(Browser, 'load'):
+            # Mock the Entry object's behavior to avoid TypeError in __init__
+            with patch('tkinter.Entry') as mock_entry:
+                instance = mock_entry.return_value
+                instance.get.return_value = ""
+                browser = Browser()
+                browser.scroll_down(None)
+                self.assertEqual(browser.scroll, 10)
+                browser.scroll_up(None)
+                self.assertEqual(browser.scroll, 0)
+                browser.scroll_up(None)
+                self.assertEqual(browser.scroll, 0)
 
     @patch('tkinter.Tk')
     @patch('tkinter.Canvas')
     def test_draw_filtering(self, mock_canvas, mock_tk):
-        browser = Browser()
-        cmd_visible = MagicMock()
-        cmd_visible.y = 100
-        cmd_visible.y2 = 110
-        cmd_above = MagicMock()
-        cmd_above.y = -100
-        cmd_above.y2 = -90
-        cmd_below = MagicMock()
-        cmd_below.y = 2000
-        cmd_below.y2 = 2010
-        browser.display_list = [cmd_visible, cmd_above, cmd_below]
-        browser.scroll = 0
-        browser.draw()
-        cmd_visible.execute.assert_called()
-        cmd_above.execute.assert_not_called()
-        cmd_below.execute.assert_not_called()
+        with patch.object(Browser, 'load'):
+            with patch('tkinter.Entry') as mock_entry:
+                instance = mock_entry.return_value
+                instance.get.return_value = ""
+                browser = Browser()
+                cmd_visible = MagicMock()
+                cmd_visible.y = 100
+                cmd_visible.y2 = 110
+                cmd_above = MagicMock()
+                cmd_above.y = -100
+                cmd_above.y2 = -90
+                cmd_below = MagicMock()
+                cmd_below.y = 2000
+                cmd_below.y2 = 2010
+                browser.display_list = [cmd_visible, cmd_above, cmd_below]
+                browser.scroll = 0
+                browser.draw()
+                cmd_visible.execute.assert_called()
+                cmd_above.execute.assert_not_called()
+                cmd_below.execute.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()
